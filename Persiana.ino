@@ -7,6 +7,8 @@
 #include <ESP32Servo.h>
 #include "WebSocketsServer.h"
 #include "HTTPClient.h"
+#include "OneWire.h"
+#include "DallasTemperature.h"
 //motores
 Servo servo1;
 Servo servo2;
@@ -21,7 +23,11 @@ unsigned long timer;
 #define LUZ_PIN 4
 //sensor T° y humedad
 DHT dht(17, DHT11);
-DHT dht1();  //segundo sensor T°
+//sensores de temperatura
+#define Temperatura 16
+OneWire oneWire(Temperatura);
+DallasTemperature sensores(&oneWire);
+DeviceAddress Dev0 , Dev1;
 //id del script para subir datos a google sheets
 String id_Script = "AKfycbwUC_8WaJJ-YYV459QiljC8qZYUkk2WyUsOUDCefGgl7rtkeZ2fuve0ULvumT5q02Y5Ng";
 //pagina web
@@ -34,7 +40,7 @@ File myFile;
 RTC_DS1307 rtc;
 DateTime lastValidDate;
 //registro
-float tempin, tempex, hum;
+float tempin1,tempin0,tempin, tempex, hum;
 int luz, td = 20, modo = 1;
 String estado, aire;
 //Funciones
@@ -94,9 +100,12 @@ void registrarEnMemoria() {
 }
 
 void mediciones() {
-  tempin = dht.readTemperature();
+  sensores.requestTemperatures();
   tempex = dht.readTemperature();
   hum = dht.readHumidity();
+  tempin0=sensores.getTempC(Dev0);
+  tempin1=sensores.getTempC(Dev1);
+  tempin=(tempin0+tempin1)/2;
 }
 
 int estacion() {
@@ -128,11 +137,11 @@ void cInvi() {
   }
   servo1.attach(servopin1, minUs, maxUs);
   servo1.write(0);
-  if (estado.equalsIgnoreCase("Cerrado_Verano")) { 
-    delay(1000);  
+  if (estado.equalsIgnoreCase("Cerrado_Verano")) {
+    delay(1000);
   }
   if (estado.equalsIgnoreCase("Abierto")) {
-    delay(500);  
+    delay(500);
   }
   estado = "Cerrado_Invierno";
   servo1.detach();
@@ -316,8 +325,44 @@ void setup() {
       Serial.println(WiFi.localIP());
     }
   }
+  char c;
+  //estado de la persiana
+  if (!SD.exists("/Estado.txt")) {
+    Serial.println("Por favor ingrese el estado actual de la persiana");
+    myFile = SD.open("/Estado.txt", FILE_WRITE);
+    myFile.close();
+  } else {
+    myFile = SD.open("/Estado.txt", FILE_READ);
+    while (myFile.available()) {
+      c = myFile.read();
+      estado += c;
+      if (myFile.peek() == '\n' || !myFile.available()) {
+        break;
+      }
+    }
+    myFile.close();
+  }
+  //estado rendija del aire
+  if (!SD.exists("/Aire.txt")) {
+    Serial.println("Por favor ingrese el estado actual de la rendija de aire");
+    myFile = SD.open("/Aire.txt", FILE_WRITE);
+    myFile.close();
+  } else {
+    myFile = SD.open("/Aire.txt", FILE_READ);
+    while (myFile.available()) {
+      c = myFile.read();
+      aire += c;
+      if (myFile.peek() == '\n' || !myFile.available()) {
+        break;
+      }
+    }
+    myFile.close();
+  }
   //iniciando sensores de T°
   dht.begin();
+  //direcciones de sensores ds18b20
+  sensores.getAddress(Dev0,0);
+  sensores.getAddress(Dev1,1);
   //iniciando reloj
   rtc.begin();
   if (!rtc.begin()) {
@@ -329,9 +374,6 @@ void setup() {
   } else {
     lastValidDate = rtc.now();
   }
-  //ajustar motores a una posicion
-  abrirPersiana();
-  cerrarAire();
   pinMode(VENT_PIN, OUTPUT);
   //monitoreo web
   server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
