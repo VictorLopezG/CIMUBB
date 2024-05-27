@@ -27,7 +27,7 @@ DHT dht(17, DHT11);
 #define Temperatura 16
 OneWire oneWire(Temperatura);
 DallasTemperature sensores(&oneWire);
-DeviceAddress Dev0 , Dev1;
+DeviceAddress Dev0, Dev1;
 //id del script para subir datos a google sheets
 String id_Script = "AKfycbwUC_8WaJJ-YYV459QiljC8qZYUkk2WyUsOUDCefGgl7rtkeZ2fuve0ULvumT5q02Y5Ng";
 //pagina web
@@ -40,7 +40,7 @@ File myFile;
 RTC_DS1307 rtc;
 DateTime lastValidDate;
 //registro
-float tempin1,tempin0,tempin, tempex, hum;
+float tempin1, tempin0, tempin, tempex, hum;
 int luz, td = 20, modo = 1;
 String estado, aire;
 //Funciones
@@ -103,9 +103,9 @@ void mediciones() {
   sensores.requestTemperatures();
   tempex = dht.readTemperature();
   hum = dht.readHumidity();
-  tempin0=sensores.getTempC(Dev0);
-  tempin1=sensores.getTempC(Dev1);
-  tempin=(tempin0+tempin1)/2;
+  tempin0 = sensores.getTempC(Dev0);
+  tempin1 = sensores.getTempC(Dev1);
+  tempin = (tempin0 + tempin1) / 2;
 }
 
 int estacion() {
@@ -183,6 +183,7 @@ void abrirAire() {
   if (aire.equalsIgnoreCase("abierto")) {
     return;
   }
+  digitalWrite(VENT_PIN, LOW);
   servo2.attach(servopin2, minUs, maxUs);
   servo2.write(180);
   delay(500);
@@ -193,6 +194,7 @@ void cerrarAire() {
   if (aire.equalsIgnoreCase("cerrado")) {
     return;
   }
+  digitalWrite(VENT_PIN, HIGH);
   servo2.attach(servopin2, minUs, maxUs);
   servo2.write(0);
   delay(500);
@@ -287,6 +289,39 @@ void setup() {
   } else {
     Serial.println("Registro encontrado");
   }
+  char c;
+  //estado de la persiana
+  if (!SD.exists("/Estado.txt")) {
+    Serial.println("Por favor ingrese el estado actual de la persiana");
+    myFile = SD.open("/Estado.txt", FILE_WRITE);
+    myFile.close();
+  } else {
+    myFile = SD.open("/Estado.txt", FILE_READ);
+    while (myFile.available()) {
+      c = myFile.read();
+      estado += c;
+      if (myFile.peek() == '\n' || !myFile.available()) {
+        break;
+      }
+    }
+    myFile.close();
+  }
+  //estado rendija del aire
+  if (!SD.exists("/Aire.txt")) {
+    Serial.println("Por favor ingrese el estado actual de la rendija de aire");
+    myFile = SD.open("/Aire.txt", FILE_WRITE);
+    myFile.close();
+  } else {
+    myFile = SD.open("/Aire.txt", FILE_READ);
+    while (myFile.available()) {
+      c = myFile.read();
+      aire += c;
+      if (myFile.peek() == '\n' || !myFile.available()) {
+        break;
+      }
+    }
+    myFile.close();
+  }
   //buscar credenciales del wifi y conectarse;
   String SSID = "";
   String CLAVE = "";
@@ -325,48 +360,15 @@ void setup() {
       Serial.println(WiFi.localIP());
     }
   }
-  char c;
-  //estado de la persiana
-  if (!SD.exists("/Estado.txt")) {
-    Serial.println("Por favor ingrese el estado actual de la persiana");
-    myFile = SD.open("/Estado.txt", FILE_WRITE);
-    myFile.close();
-  } else {
-    myFile = SD.open("/Estado.txt", FILE_READ);
-    while (myFile.available()) {
-      c = myFile.read();
-      estado += c;
-      if (myFile.peek() == '\n' || !myFile.available()) {
-        break;
-      }
-    }
-    myFile.close();
-  }
-  //estado rendija del aire
-  if (!SD.exists("/Aire.txt")) {
-    Serial.println("Por favor ingrese el estado actual de la rendija de aire");
-    myFile = SD.open("/Aire.txt", FILE_WRITE);
-    myFile.close();
-  } else {
-    myFile = SD.open("/Aire.txt", FILE_READ);
-    while (myFile.available()) {
-      c = myFile.read();
-      aire += c;
-      if (myFile.peek() == '\n' || !myFile.available()) {
-        break;
-      }
-    }
-    myFile.close();
-  }
   //iniciando sensores de T°
   dht.begin();
   //direcciones de sensores ds18b20
-  sensores.getAddress(Dev0,0);
-  sensores.getAddress(Dev1,1);
+  sensores.getAddress(Dev0, 0);
+  sensores.getAddress(Dev1, 1);
   //iniciando reloj
   rtc.begin();
   if (!rtc.begin()) {
-    Serial.println("Couldn't find RTC");
+    Serial.println("No se encontro RTC");
     Serial.flush();
   }
   if (!rtc.isrunning()) {
