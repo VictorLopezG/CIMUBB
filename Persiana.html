@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Ventana Inteligente</title>
+	<link rel="icon" type="image/png" href="logo1.png">
+	<meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<style>html {
+  font-family: Helvetica;
+  display: inline-block;
+  margin: 0px auto;
+  text-align: center;
+  
+}
+h1{
+  color: #fff;
+  padding: 2vh;
+  top:0;
+  right:0;
+}
+h2{
+  color: #fff;
+  padding: 2vh;
+}
+p{
+  color: #fff;
+  font-size: 1.5rem;
+}
+footer{
+	color:#fff;
+	text-align: right;
+}
+body {
+  width: 100%;
+  /*display: flex;*/
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: #101010;
+  margin: 0 auto;
+}
+.icono{
+	height:100px;
+	width:350px;
+	top:0px;
+	left:0px;
+}
+.icono2{
+  height:100px;
+  width:250px;
+  top:100px;
+  left:0px;
+}
+
+.button {
+  display: inline-block;
+  background-color: #008CBA;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  padding: 0px 15px;
+  text-decoration: none;
+  font-size: 30px;
+  margin: 2px;
+  cursor: pointer;
+}
+/* The switch - the box around the slider */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 34px;
+}
+
+/* Hide default HTML checkbox */
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* The slider */
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  -webkit-transition: .4s;
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 26px;
+  width: 26px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  -webkit-transition: .4s;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background-color: #2196F3;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #2196F3;
+}
+
+input:checked + .slider:before {
+  -webkit-transform: translateX(26px);
+  -ms-transform: translateX(26px);
+  transform: translateX(26px);
+}
+
+/* Rounded sliders */
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+</style>
+<body>
+	<div><a href="https://www.ubiobio.cl/w/" target="_blank"><img src="logo.png" class="icono"></a>
+  <img src="logo2.png" class="icono2"></div>
+  <h1><strong>Ventana Integrada Sustentable</strong></h1>
+	<h2>Persiana</h2>
+	<p>Manual <label class="switch"><input type="checkbox" id=mode><span id=slider class="slider"></span></label> Automatico</p>
+	<p id=res></p>
+	<p>Luz: <strong id=luz></strong></p>
+	<p>Abierto/Cerrado: <strong id=ab></strong></p>
+  <p><button onclick="abrir()" class="button"><p>Abrir</font></p></button></p>
+	<p><button onclick="cerrarV()" class="button"><p>Cerrar(Verano)</font></p></button>
+	<button onclick="cerrarI()" class="button"><p>Cerrar(Invierno)</font></p></button></p>
+	<h2>Panel</h2>
+	<p>Temperatura deseada:<strong id=temper></strong>&deg;C</p>
+	<p><button onclick="cambio()" class="button"><p>Cambiar</font></p></button><input type="number" id="tempDes" min="15" max="25"> &deg;C</p>
+	<p>Temperatura interna: <strong id=tempin></strong>&deg;C</p>
+	<p>Temperatura externa: <strong id=tempex></strong>&deg;C</p>
+	<p>Humedad: <strong id=hum></strong>&percnt;</p>
+	<p>Aire:<strong id=aire></strong></p>
+	<p><button onclick="on()" class="button"><p>Encender</font></p></button><button onclick="off()" class="button"><p>Apagar</font></p></button></p>
+	<footer>Proyecto desarrollado por: Víctor Rosales, Alonso Rebolledo, Claudio Montero, Luis Vera, Víctor López, Universidad del Bio Bio 2021-2024</footer>
+</body>
+
+<script>
+  var socket = new WebSocket("ws://" + window.location.hostname + ":81/");
+	// Agregar un controlador de eventos para manejar mensajes WebSocket
+    socket.onmessage = function(event) {
+    // Manejar el mensaje recibido del servidor
+        var datos = event.data.split(",");
+        var luz = datos[0];
+        var ab = datos[1];
+        var tempin = parseFloat(datos[2]);
+        var tempex = parseFloat(datos[3]);
+        var hum = parseFloat(datos[4]);
+        var aire = datos[5];
+        var modo = datos[6];
+        var td = datos[7];
+    // Actualizar tu interfaz gráfica con los nuevos datos
+        actualizarInterfaz(luz,ab,tempin,tempex,hum,aire, modo,td);
+    };
+
+    function actualizarInterfaz(luz,ab,tempin,tempex,hum,aire, modo,td) {
+        document.getElementById("luz").innerHTML = luz;
+        document.getElementById("ab").innerHTML = ab;
+        document.getElementById("tempin").innerHTML = tempin ;
+        document.getElementById("tempex").innerHTML = tempex ;
+        document.getElementById("hum").innerHTML = hum ;
+        document.getElementById("aire").innerHTML = aire ;
+        document.getElementById("temper").innerHTML = td ;
+        if(modo==1){
+        	document.getElementById('mode').checked=true;	
+        }else{
+        	document.getElementById('mode').checked=false;
+        }        
+    }
+    const abrir = () => socket.send("abrir");
+    const cerrarI = () => socket.send("cerrarI");
+    const cerrarV = () => socket.send("cerrarV");
+    const on = () => socket.send("on");
+    const off = () => socket.send("off");
+    const modo = document.querySelector("#modo");
+    const cambio = () => socket.send(document.getElementById("tempDes").value);
+
+	mode.addEventListener("click", () => {
+            if (mode.checked) {
+            	console.log("auto");
+               socket.send("auto");
+            } else {
+                socket.send("manual");
+                console.log("manual");
+            }
+        });
+</script>
+</html>
