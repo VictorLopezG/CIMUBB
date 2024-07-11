@@ -10,7 +10,7 @@
 #define pin_DHT 17
 #define pin_bom 16
 //LiquidCrystal_I2C lcd(0x27,16,2);
-
+int bot,uBot;
 float temp = 0, flu, hum = 0;
 long previousMillis = 0;
 long currentMillis = 0;
@@ -19,6 +19,7 @@ volatile byte pulseCount;
 byte pulse1Sec = 0;
 unsigned long lTimer = 0;
 unsigned long timer = 0;
+unsigned long timer1, timer2,bTimer=0;
 String tMaq = "";
 DHT dht(pin_DHT, DHT11);
 bool uPIR = false, blink = false, led = false;
@@ -28,18 +29,9 @@ bool lecturaPIR() {
   int pir = digitalRead(pin_PIR);
   if (pir == HIGH) {
     return true;
-  } else {
-    return false;
   }
-}
-
-void IRAM_ATTR bomba() {
-  detachInterrupt(pin_boton);
-  unsigned long iTimer = millis();
-  digitalWrite(pin_bom, LOW);
-  if (millis() - iTimer >= 3000) {
-    digitalWrite(pin_bom, HIGH);
-    attachInterrupt(digitalPinToInterrupt(pin_bom), bomba, FALLING);
+  if(pir==LOW){
+    return false;
   }
 }
 
@@ -153,14 +145,13 @@ void setup() {
     dht.begin();
     Serial.println("iniciando DHT11");
   }
-  revArch("/", tMaq);
+  //revArch("/", tMaq);
   //lcd.begin(16, 2);
   pinMode(pin_bom, OUTPUT);  //bomba
   digitalWrite(pin_bom, HIGH);
   pinMode(pin_LED, OUTPUT);          //led
   pinMode(pin_PIR, INPUT);           //pir
-  pinMode(pin_boton, INPUT_PULLUP);  //boton
-  attachInterrupt(digitalPinToInterrupt(pin_bom), bomba, FALLING);
+  pinMode(pin_boton, INPUT);  //boton
   pinMode(pin_Flujo, INPUT);  //flujo
   attachInterrupt(digitalPinToInterrupt(pin_Flujo), pulseCounter, FALLING);
   //esp_sleep_enable_timer_wakeup(1000000 * 3600 * 13);
@@ -168,13 +159,24 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-  unsigned long timer1, timer2;
   mediciones();
+  bot=digitalRead(pin_boton);
+  if(bot==HIGH && uBot==LOW){
+    digitalWrite(pin_bom,LOW);
+    bTimer=millis();
+    uBot=HIGH;
+  }
+  if(millis()-bTimer>10000){
+    digitalWrite(pin_bom,HIGH);
+    if(millis()-bTimer>15000){
+      uBot=LOW;
+    }
+  }
   /*lcd.setCursor(0, 0);
   lcd.print("Flujo:" + String(flu));
   lcd.setCursor(0, 1);
   lcd.print("Temp:" + String(temp) + "Hum:" + String(hum));*/
-  if (lecturaPIR() && !uPIR) {
+  if (lecturaPIR() && !uPIR && millis()-bTimer<15000) {
     visitas++;
     uPIR = true;
     registrarDatos(temp, hum, flu, visitas);
