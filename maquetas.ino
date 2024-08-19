@@ -3,14 +3,15 @@
 #include "WiFi.h"
 //#include "LiquidCrystal_I2C.h"
 
-#define pin_PIR 12
+#define pin_PIR 26
 #define pin_Flujo 13
 #define pin_boton 14
 #define pin_LED 25
 #define pin_DHT 17
 #define pin_bom 16
+#define pin_rele2 27
 //LiquidCrystal_I2C lcd(0x27,16,2);
-int bot,uBot;
+int bot, uBot = LOW;
 float temp = 0, flu, hum = 0;
 long previousMillis = 0;
 long currentMillis = 0;
@@ -19,7 +20,7 @@ volatile byte pulseCount;
 byte pulse1Sec = 0;
 unsigned long lTimer = 0;
 unsigned long timer = 0;
-unsigned long timer1, timer2,bTimer=0;
+unsigned long timer1 = 0, timer2 = 0, bTimer = 0;
 String tMaq = "";
 DHT dht(pin_DHT, DHT11);
 bool uPIR = false, blink = false, led = false;
@@ -30,7 +31,7 @@ bool lecturaPIR() {
   if (pir == HIGH) {
     return true;
   }
-  if(pir==LOW){
+  if (pir == LOW) {
     return false;
   }
 }
@@ -54,10 +55,10 @@ void IRAM_ATTR pulseCounter() {
 }
 
 void mediciones() {
-  if (tMaq.equalsIgnoreCase("atrapanieblas")) {
-    temp = dht.readTemperature();
-    hum = dht.readHumidity();
-  }
+
+  temp = dht.readTemperature();
+  hum = dht.readHumidity();
+
   flujo();
 }
 
@@ -84,7 +85,6 @@ String extraerCredenciales(File myFile) {
 
 void setup() {
   Serial.begin(115200);
-
   //lcd.init();
   //lcd.backlight();
   //lcd.clear();
@@ -141,18 +141,18 @@ void setup() {
       Serial.println(WiFi.localIP());
     }
   }
-  if (tMaq.equalsIgnoreCase("Atrapanieblas")) {
-    dht.begin();
-    Serial.println("iniciando DHT11");
-  }
+
+  dht.begin();
   //revArch("/", tMaq);
   //lcd.begin(16, 2);
   pinMode(pin_bom, OUTPUT);  //bomba
   digitalWrite(pin_bom, HIGH);
-  pinMode(pin_LED, OUTPUT);          //led
-  pinMode(pin_PIR, INPUT);           //pir
-  pinMode(pin_boton, INPUT);  //boton
-  pinMode(pin_Flujo, INPUT);  //flujo
+  pinMode(pin_rele2, OUTPUT);  //bombaG/humidificador
+  digitalWrite(pin_rele2, HIGH);
+  pinMode(pin_LED, OUTPUT);            //led
+  pinMode(pin_PIR, INPUT_PULLDOWN);    //pir
+  pinMode(pin_boton, INPUT_PULLDOWN);  //boton
+  pinMode(pin_Flujo, INPUT);           //flujo
   attachInterrupt(digitalPinToInterrupt(pin_Flujo), pulseCounter, FALLING);
   //esp_sleep_enable_timer_wakeup(1000000 * 3600 * 13);
 }
@@ -160,61 +160,76 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   mediciones();
-  bot=digitalRead(pin_boton);
-  if(bot==HIGH && uBot==LOW){
-    digitalWrite(pin_bom,LOW);
-    bTimer=millis();
-    uBot=HIGH;
-  }
-  if(millis()-bTimer>10000){
-    digitalWrite(pin_bom,HIGH);
-    if(millis()-bTimer>15000){
-      uBot=LOW;
+  bot = digitalRead(pin_boton);
+  if (bot == HIGH && uBot == LOW) {
+    digitalWrite(pin_bom, LOW);
+    if (tMaq.equalsIgnoreCase("Atrapa_nieblas")) {
+      digitalWrite(pin_rele2, LOW);
     }
+    bTimer = millis();
+    uBot = HIGH;
+    Serial.println("boton");
   }
-  /*lcd.setCursor(0, 0);
-  lcd.print("Flujo:" + String(flu));
-  lcd.setCursor(0, 1);
-  lcd.print("Temp:" + String(temp) + "Hum:" + String(hum));*/
-  if (lecturaPIR() && !uPIR && millis()-bTimer<15000) {
-    visitas++;
+  if (millis() - bTimer > 7500) {
+    digitalWrite(pin_rele2, HIGH);
+  }
+  if (lecturaPIR()) {
+    Serial.println("persona");
+    Serial.println(temp);
+  }
+
+  if (lecturaPIR() && uBot == HIGH) {
+    if (uPIR = false) {
+      visitas++;
+    }
     uPIR = true;
     registrarDatos(temp, hum, flu, visitas);
     timer1 = millis();
     timer2 = millis();
-    do {
-      if (millis() > timer2 + 10000) {
-        mediciones();
-        registrarDatos(temp, hum, flu, visitas);
-        timer2 = millis();
-      }
-      if (timer1 - millis() > 60000) {
-        break;
-      }
-    } while (1);
-    mediciones();
-    registrarDatos(temp, hum, flu, visitas);
+    if (millis() > timer2 + 1500) {
+      mediciones();
+      registrarDatos(temp, hum, flu, visitas);
+      timer2 = millis();
+    }
   }
+
   if (!lecturaPIR() && uPIR) {
     uPIR = false;
   }
+
+  if (uBot == HIGH && millis() - bTimer > 5000) {
+    digitalWrite(pin_bom, HIGH);
+    if (tMaq.equalsIgnoreCase("Aguas_grises")) {
+      digitalWrite(pin_rele2, LOW);
+    }
+    if (millis() - bTimer > 15000) {
+      uBot = LOW;
+      Serial.println("Cooldown");
+    }
+  }
+
+  //subir datos al final del dia
   if (String(rtc.now().timestamp(DateTime::TIMESTAMP_TIME)).equals("23:59:59")) {
     if (WiFi.status() == WL_CONNECTED) {
       Serial.println("Subiendo_datos");
       revArch("/", tMaq);
-      blink = true;
-    } else {
       blink = false;
+    } else {
+      blink = true;
     }
     visitas = 0;
     //esp_deep_sleep_start();
   }
+  //parpadeo del led
   if (blink) {
-    if (led && millis() - lTimer > 1000) {
-      digitalWrite(pin_LED, HIGH);
-    }
-    if (!led && millis() - lTimer > 1000) {
-      digitalWrite(pin_LED, LOW);
+    if (millis() - lTimer > 1000) {
+      if (led) {
+        digitalWrite(pin_LED, LOW);
+      } else {
+        digitalWrite(pin_LED, HIGH);
+      }
+      led = !led;
+      lTimer = millis();
     }
   } else {
     digitalWrite(pin_LED, HIGH);
