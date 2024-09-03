@@ -165,9 +165,7 @@ void loop() {
     Serial.println("boton");
   }
 
-  if (millis() - bTimer > 7500) {
-    digitalWrite(pin_rele2, HIGH);  //apaga segundo rele bomba o humidificador
-  }
+ 
 
   if (lecturaPIR()) {
     Serial.println("persona");
@@ -187,7 +185,7 @@ void loop() {
       timer2 = millis();
     }
   }
-
+  
   if (!lecturaPIR() && uPIR) {
     uPIR = false;
   }
@@ -202,6 +200,12 @@ void loop() {
       Serial.println("Cooldown");
     }
   }
+
+  if (millis() - bTimer > 7500) {
+    Serial.println("apagando");
+    digitalWrite(pin_rele2, HIGH);  //apaga segundo rele bomba o humidificador
+  }
+
   //subir datos al final del dia
   if (String(rtc.now().timestamp(DateTime::TIMESTAMP_TIME)).equals("23:59:59")) {
     if (WiFi.status() == WL_CONNECTED) {
