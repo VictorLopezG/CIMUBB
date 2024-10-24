@@ -190,7 +190,7 @@ void loop() {
     uPIR = false;
   }
 
-  if (uBot == HIGH && millis() - bTimer > 5000) {
+  if (uBot == HIGH && millis() - bTimer > 5000) {//timer de la primera bomba!!
     digitalWrite(pin_bom, HIGH);  //apaga la primera bomba
     if (tMaq.equalsIgnoreCase("Aguas_grises")) {
       digitalWrite(pin_rele2, LOW);  //enciende la segunda bomba
@@ -201,7 +201,7 @@ void loop() {
     }
   }
 
-  if (millis() - bTimer > 7500) {
+  if (millis() - bTimer > 7500) {//timer de la segunda bomba!!
     Serial.println("apagando");
     digitalWrite(pin_rele2, HIGH);  //apaga segundo rele bomba o humidificador
   }
